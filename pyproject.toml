@@ -1,0 +1,45 @@
+[urls]
+package-url = 'https://github.com/HuLoMa/pyIELS'
+
+[project]
+name = "pyIELS"
+version = "0.0.1"
+description = 'Scientific package for the simulation of the interaction of fast electrons with an electro-magnetic field'
+dependencies = [
+    "qutip",
+    "matplotlib",
+    "pint",
+    "ipykernel",
+    "jupyterlab"
+]
+
+authors = [
+    {name = "Lourenco-Martins Hugo", email = "hugo.lourenco-martins@cemes.fr"},
+]
+maintainers = [
+    {name = "Adrien Teurtrie", email = "adrien.teurtrie@cemes.fr"},
+    {name = "Lourenco-Martins Hugo", email = "hugo.lourenco-martins@cemes.fr"}
+]
+
+readme = "README.md"
+license = { file="LICENSE" }
+requires-python = ">=3.10"
+
+classifiers = [
+    "Development Status :: Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Quantum mechanics simulation",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8", "wheel"]
+build-backend = "setuptools.build_meta"
