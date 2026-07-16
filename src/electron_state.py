@@ -261,6 +261,11 @@ shape = [4, 4], type = oper, isHerm = True
                 isherm = isherm,
                 isunitary=isunitary,
                 copy = False)
+    
+    if qobj.dims[0] == [1] : 
+        dim_indices[0] = 0
+    if qobj.dims[1] == [1] : 
+        dim_indices[1] = 0
 
     return ElectronState(elec_state,
                 qobj,
@@ -276,3 +281,53 @@ if __name__ == '__main__' :
     # es._qobj[*idx]
     a = basis(5,1) * basis(2,1).dag()
     es * a
+
+from functools import wraps
+
+def vectorize_operation(method):
+    """
+    Decorator to make a method handle both single custom objects and tuples of them.
+    """
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        # We assume the first argument (or self) is our wrapper object.
+        # If the method is binary (e.g., self + other), we check 'other'.
+        
+        # Scenario 1: No extra positional arguments (unary operation, e.g., self.dagger())
+        if not args:
+            # If the wrapper object itself holds a tuple internally
+            if isinstance(self.data, tuple):
+                # Apply the method to a temporary instance created for each element
+                return tuple(method(self.__class__(item), **kwargs) for item in self.data)
+            return method(self, **kwargs)
+
+        # Scenario 2: Binary operations (e.g., self + other)
+        other = args[0]
+        
+        # Case A: 'other' is a tuple
+        if isinstance(other, tuple):
+            # If self is also representing a tuple internally, pair them up (zip)
+            if isinstance(self.data, tuple):
+                if len(self.data) != len(other):
+                    raise ValueError("Tuple lengths must match for mathematical operations.")
+                return tuple(
+                    method(self.__class__(s), self._unwrap(o), *args[1:], **kwargs)
+                    for s, o in zip(self.data, other)
+                )
+            # If self is single, distribute self across the tuple of 'other'
+            return tuple(
+                method(self, self._unwrap(o), *args[1:], **kwargs) 
+                for o in other
+            )
+            
+        # Case B: 'other' is single, but 'self' holds a tuple internally
+        if isinstance(self.data, tuple):
+            return tuple(
+                method(self.__class__(s), self._unwrap(other), *args[1:], **kwargs)
+                for s in self.data
+            )
+
+        # Case C: Both are single objects
+        return method(self, *args, **kwargs)
+
+    return wrapper
