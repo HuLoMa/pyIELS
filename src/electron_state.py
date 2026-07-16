@@ -5,7 +5,7 @@ import functools
 import numbers
 import qutip.core.data as _data
 from qutip import settings
-from qutip.core.qobj import _require_equal_type
+from itertools import pairwise
 
 __all__ = ['ElectronState']
 
@@ -28,16 +28,32 @@ class ElectronState :
         Fetch the electron state indices from the total q object.
         """
         es_indices = []
-        for mat_dim_ind,dim_list in enumerate(self._qobj.dims) :
-            es_dim_index = self.es_dims_indices[mat_dim_ind]
-            shape_left = math.prod(dim_list[:es_dim_index])
-            # TODO : Check this. it is tricky.
-            if len(dim_list) == 1 :
-                shape_right = 1
-            else :
-                shape_right = math.prod(dim_list[es_dim_index:])
-            es_indices.append([x for x in range(dim_list[es_dim_index]) for _ in range(shape_right)]*shape_left)
+
+        dim_list = self._qobj.dims
+         
+        es_ind = self.es_dims_indices[0]
+        shape_left = math.prod(dim_list[0][:es_ind])
+        shape_right = math.prod(dim_list[0][es_ind+1:])
+        es_indices.append([x for x in range(dim_list[0][es_ind]) for _ in range(shape_right)]*shape_left)
+
+        es_ind = self.es_dims_indices[1]
+        shape_left = math.prod(dim_list[1][:es_ind])
+        shape_right = math.prod(dim_list[1][es_ind+1:])
+        es_indices.append([x for x in range(dim_list[1][es_ind]) for _ in range(shape_right)]*shape_left)
+        
         return es_indices
+        # es_indices = []
+        
+        # for mat_dim_ind,dim_list in enumerate(self._qobj.dims) :
+        #     es_dim_index = self.es_dims_indices[mat_dim_ind]
+        #     shape_left = math.prod(dim_list[:es_dim_index])
+        #     # TODO : Check this. it is tricky.
+        #     if len(dim_list) == 1 :
+        #         shape_right = 1
+        #     else :
+        #         shape_right = math.prod(dim_list[es_dim_index:])
+        #     es_indices.append([x for x in range(dim_list[es_dim_index]) for _ in range(shape_right)]*shape_left)
+        # return es_indices
     
     def check_pure_electron(self) : 
         pass
@@ -48,7 +64,7 @@ class ElectronState :
                     data=self._qobj.copy(),
                     dim_indices=self.es_dims_indices)
     
-    @_require_equal_type
+    # @_require_equal_type
     def __add__(self, other: Qobj | complex) -> Qobj:
         if other == 0:
             return self.copy()
@@ -69,7 +85,7 @@ class ElectronState :
                 "It is not possible to sum electron states with regular qutip states."
                 ) from exc
 
-    def __radd__(self, other: Qobj | complex) -> Qobj:
+    def __radd__(self, other: Qobj | complex) :
         return self.__add__(other)
     
     def __getattr__(self, name):
@@ -79,7 +95,7 @@ class ElectronState :
     # def __setattr__(self, name, value):
     #     setattr(self._qobj, name, value)
 
-    def __mul__(self, other: complex) -> Qobj:
+    def __mul__(self, other: complex) :
         """
         If other is a Qobj, we dispatch to __matmul__. If not, we
         check that other is a valid complex scalar, i.e., we can do
@@ -96,7 +112,7 @@ class ElectronState :
         # TypeError if it does not know what to do with the type of other.
         try:
             out = _data.mul(self._data, other)
-            new_electron_state = _data.mul(self.electron_state._data,other)
+            new_electron_state = Qobj(_data.mul(self.electron_state._data,other))
         except TypeError:
             return NotImplemented
 
@@ -122,37 +138,141 @@ class ElectronState :
         # Shouldn't be here unless `other.__mul__` has already been tried, so
         # we _shouldn't_ check that `other` is `Qobj`.
         return self.__mul__(other)
+
+    def dag(self) : 
+        """Get the Hermitian adjoint of the quantum object."""
+        if self._isherm:
+            return self.copy()
+        new_qobj = self._qobj.dag()
+        new_electron_state = self.electron_state.dag()
+        return ElectronState(new_electron_state,new_qobj) 
+    
+    def __getitem__(self, key):
+        return self._qobj.__getitem__(key)
     
     # TODO : Qobj are allowed if operators else only compatible electron state are possible.
-    def __matmul__(self, other: Qobj) -> Qobj:
-        if not isinstance(other, Qobj):
-            try:
-                other = Qobj(other)
-            except TypeError:
-                return NotImplemented
+    def __matmul__(self, other ) :
         new_dims = self._dims @ other._dims
         if new_dims.type == 'scalar':
             return _data.inner(self._data, other._data)
-        if self.isket and other.isbra:
-            return Qobj(
+        if isinstance(other, ElectronState):
+            new_electron_state = self.electron_state@other.electron_state
+            new_dim_indices = self.es_dims_indices[:-1] + other.es_dims_indices[1:]
+            
+            if self.isket and other.isbra :
+                qobj = Qobj(
                 _data.matmul_outer(self._data, other._data),
                 dims=new_dims,
                 isunitary=False,
-                copy=False
-            )
-
-        return Qobj(
+                copy=False)
+                return ElectronState(new_electron_state,
+                                     qobj,
+                                     new_dim_indices)
+            qobj = Qobj(
             _data.matmul(self._data, other._data),
             dims=new_dims,
             isunitary=self._isunitary and other._isunitary,
-            copy=False
-        )
+            copy=False)
+            return ElectronState(new_electron_state,
+                                 qobj,
+                                 new_dim_indices)
+        try:
+            assert other.isoper
+            # new_electron_state = Qobj(
+            #     _data.matmul(self._data, other._data),
+            #     dims=new_dims,
+            #     isunitary=self._isunitary and other._isunitary,
+            #     copy=False)
+            # new_dim_indices = self.es_dims_indices[:-1] + other.es_dims_indices[1:]
+
+        except TypeError:
+            return NotImplemented
+        
+def etensor(*args: Qobj | ElectronState) -> Qobj | ElectronState:
+    """Calculates the tensor product of input operators.
+
+    Parameters
+    ----------
+    args : array_like
+        ``list`` or ``array`` of quantum objects for tensor product.
+
+    Returns
+    -------
+    obj : qobj
+        A composite quantum object.
+
+    Examples
+    --------
+    >>> tensor([sigmax(), sigmax()]) # doctest: +SKIP
+    Quantum object: dims = [[2, 2], [2, 2]], \
+shape = [4, 4], type = oper, isHerm = True
+    Qobj data =
+    [[ 0.+0.j  0.+0.j  0.+0.j  1.+0.j]
+     [ 0.+0.j  0.+0.j  1.+0.j  0.+0.j]
+     [ 0.+0.j  1.+0.j  0.+0.j  0.+0.j]
+     [ 1.+0.j  0.+0.j  0.+0.j  0.+0.j]]
+    """
+    if not args:
+        raise TypeError("Requires at least one input argument")
+    if len(args) == 1 and isinstance(args[0], (Qobj, ElectronState)):
+        return args[0].copy()
+    if len(args) == 1:
+        try:
+            args = tuple(args[0])
+        except TypeError:
+            raise TypeError("requires Qobj or ElectronState operands") from None
+    if not all(isinstance(q, (Qobj, ElectronState)) for q in args):
+        raise TypeError("requires Qobj or ElectronState operands")
     
+    es_positions = []
+    for i,arg in enumerate(args) :
+        if isinstance(arg,ElectronState) :
+            es_positions.append(i)
+    
+    if len(es_positions) == 0 : 
+        raise ValueError("None of the arguments are Electron states. The etensor applies on ElectronState, use qutip tensor for qutip only usage.")
+    
+    if len(es_positions) > 1 : 
+        raise NotImplementedError("We can't handle tensor of multiple electron states.")
+
+    isherm = args[0]._isherm
+    isunitary = args[0]._isunitary
+    out_data = args[0].data
+    dims_l = [args[0]._dims[0]]
+    dims_r = [args[0]._dims[1]]
+    if isinstance(args[0],ElectronState) :
+        dim_indices = [0,0]
+        elec_state = args[0].electron_state
+
+    for i, arg in enumerate(args[1:]):
+        out_data = _data.kron(out_data, arg.data)
+        # If both _are_ Hermitian and/or unitary, then so is the output, but if
+        # both _aren't_, then output still can be.
+        isherm = (isherm and arg._isherm) or None
+        isunitary = (isunitary and arg._isunitary) or None
+        dims_l.append(arg._dims[0])
+        dims_r.append(arg._dims[1])
+        if isinstance(arg,ElectronState) :
+            dim_indices = [i+1,i+1]
+            elec_state = arg.electron_state
+
+    qobj = Qobj(out_data,
+                dims=[dims_l,dims_r],
+                isherm = isherm,
+                isunitary=isunitary,
+                copy = False)
+
+    return ElectronState(elec_state,
+                qobj,
+                dim_indices=dim_indices)
 
 if __name__ == '__main__' : 
     from qutip import basis
     alpha = basis(5,2)
     es = ElectronState(alpha)
-    print(es + alpha)
-    idx = es.get_es_indices()
-    es._qobj[*idx]
+    es1 = ElectronState(alpha)
+    # print(es + es1)
+    # idx = es.get_es_indices()
+    # es._qobj[*idx]
+    a = basis(5,1) * basis(2,1).dag()
+    es * a
