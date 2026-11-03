@@ -5,14 +5,9 @@ Core class and functions of pyiels.
 from qutip import Qobj, tensor
 import numpy as np
 import math
-import functools
-import numbers
 import qutip.core.data as _data
 from qutip import settings
-from itertools import pairwise
-from physics_utils import gaussian, PhysicalQuantities
-from pint import Quantity, UnitRegistry
-from scipy import signal
+import warnings
 
 __all__ = ['ElectronState']
 
@@ -232,7 +227,7 @@ class ElectronState :
             try : 
                 es = other@self.electron_state
             except TypeError :
-                print("The electron state and operator don't have matching dimensions. We recommend using electron state tensor operator")
+                warnings.warn("The electron state and operator don't have matching dimensions. We recommend using electron state tensor operator")
                 # TODO : improve error message
                 es = self.electron_state
                 

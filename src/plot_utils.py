@@ -210,5 +210,3 @@ def plot_2d_field(data : np.ndarray,
             ax_main.grid(True, which='both', linestyle=grid_linestyle, color=grid_color, alpha=grid_alpha)
             ax_top.grid(True, which='both', linestyle=grid_linestyle, color=grid_color, alpha=grid_alpha)
             ax_right.grid(True, which='both', linestyle=grid_linestyle, color=grid_color, alpha=grid_alpha)
-
-    return fig
