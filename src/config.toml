@@ -1,0 +1,22 @@
+[plot_params]
+fontsize = 12
+axes_labelsize = 14
+xtick_labelsize = 11
+ytick_labelsize = 11
+cmap = "seismic"
+figsize = [8, 8]
+xlabel = "Position $z$"
+ylabel = "Momentum $p_z$"
+colorbar_label = "W (arb. units)"
+top_line_color = "#391dda"
+top_fill_alpha = 0.3
+right_line_color = "#c5142f"
+right_fill_alpha = 0.3
+top_ylabel = "$\\vert \\Psi(z) \\vert^2 $ (a.u.)"
+right_xlabel = "$\\vert \\Psi(p_z) \\vert^2 $ (a.u.)"
+
+# Grid configurations
+grid = true
+grid_linestyle = "--"
+grid_color = "gray"
+grid_alpha = 0.4
